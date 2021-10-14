@@ -60,13 +60,21 @@ if args.input is not None:
 elif args.matchinput is not None:
     with open(args.output, 'r') as j_output:
         print(args.matchinput)
-        pattern = re.sub(r'(?<!\\)\.', r'(.*)', args.matchinput)
+        pattern = re.sub(r'(?<!\\)\.', r'(.*?)', args.matchinput)
         pattern = re.sub(r'\\\.', r'.', pattern)
         print(pattern)
-        _output = j_output.read()
-        print(_output)
-        for i in range(len(_output)):
-            print(re.search(pattern, _output, i))
+        o = j_output.read()
+        out_and_in = re.split(pattern, o)
+        _out = []
+        _in = []
+        if re.match(pattern, o) is None:
+            _out = out_and_in[::2]
+            _in = out_and_in[1::2]
+        else:
+            _out = out_and_in[1::2]
+            _in = out_and_in[::2]
+        print(_out, _in)
+
 else:
     with open(args.source + '.output', 'a+') as input_output:
         program_out = subprocess.run(
