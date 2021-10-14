@@ -17,8 +17,7 @@ juparse.add_argument(
     '-r',
     '--regexin',
     type=str,
-    help=
-    r'''the output and input are in one file, where the input matches a regex.
+    help=r'''the output and input are in one file, where the input matches a regex.
     written in a way inputs can be caught by capture group one
     e.g. if inputs are denoted with \[(.*)\] the actual input is in group one
     ''')
@@ -38,7 +37,7 @@ if args.input is not None:
     optional_input = ''
     with open(args.input) as j_input:
         program_out = subprocess.run(
-            ['java', args.source.split(".")[0], '<', args.input],
+            ['java', args.source.split(".")[0]],
             stdin=j_input)
 
 elif args.regexin is not None:
