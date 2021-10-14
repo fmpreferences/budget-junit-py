@@ -29,24 +29,23 @@ args = juparse.parse_args()
 
 program_out = ''
 if args.flags is not None:
-    subprocess.run('javac', args.source, *args.flags.split(' '))
+    subprocess.run(['javac', args.source, *args.flags.split(' ')])
 else:
-    subprocess.run('javac', args.source)
+    subprocess.run(['javac', args.source])
 if args.input is not None:
-    program_out = subprocess.run('java',
+    program_out = subprocess.run(['java',
                                  args.source.split('.')[0], '<',
-                                 args.input)
+                                 args.input])
 elif args.regexin is not None:
     with open(args.output) as j_output:
         whole_file = j_output.read()
         optional_input = ''.join(re.findall(args.regexin, whole_file))
         optional_output = ''.join(re.split(args.regexin, whole_file))
-    program_out = subprocess.run('java',
+    program_out = subprocess.run(['java',
                                  args.source.split('.')[0], '<',
-                                 optional_input)
+                                 optional_input])
     sys.exit(program_out == optional_output)
 else:
-    program_out = subprocess.run('java', args.source.split('.')[0])
-
+    program_out = subprocess.run(['java', args.source.split('.')[0]])
 with open(args.output) as j_output:
     print(program_out == j_output.read())
