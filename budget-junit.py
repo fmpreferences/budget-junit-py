@@ -66,11 +66,9 @@ if args.input is not None:
         else:
             print(input_output.read() == j_output.read())
 elif args.matchinput is not None:
-    with open(args.output, 'r') as j_output:
-        print(args.matchinput)
+    with open(args.output) as j_output:
         pattern = re.sub(r'(?<!\\)\.', r'(.*?)', args.matchinput)
         pattern = re.sub(r'\\\.', r'.', pattern)
-        print(pattern)
         o = j_output.read()
         out_and_in = re.split(pattern, o)
         _out = []
@@ -81,18 +79,16 @@ elif args.matchinput is not None:
         else:
             _out = out_and_in[1::2]
             _in = out_and_in[::2]
-        print(_out, _in)
         _output = ''.join(_out)
         _input = '\n'.join(_in) + '\n'
-        print(_input)
         with TemporaryFile('a+') as tinput, TemporaryFile(
                 'a+') as toutput, TemporaryFile('a+') as tstdout:
             tinput.write(_input)
             tinput.seek(0)
             if args.whitespace:
-                tinput.write(_output.strip())
+                toutput.write(_output.strip())
             else:
-                tinput.write(_output)
+                toutput.write(_output)
             toutput.seek(0)
             subprocess.run(['java', args.source.split(".")[0]],
                            stdin=tinput,
