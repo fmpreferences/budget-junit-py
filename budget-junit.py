@@ -1,6 +1,7 @@
 import subprocess
 from argparse import ArgumentParser
 import re
+import tempfile
 
 juparse = ArgumentParser(description='Tests your file compared to input')
 
@@ -49,14 +50,14 @@ else:
     subprocess.run(['javac', args.source])
 if args.input is not None:
     optional_input = ''
-    with open(args.input) as j_input:
-        with open(args.input + ".output", 'a+') as input_output:
-            input_output.truncate(0)
-            subprocess.run(['java', args.source.split(".")[0]],
-                           stdin=j_input,
-                           stdout=input_output)
+    with open(args.input) as j_input, open(args.input + ".output",
+                                           'a+') as input_output:
+        input_output.truncate(0)
+        subprocess.run(['java', args.source.split(".")[0]],
+                       stdin=j_input,
+                       stdout=input_output)
     with open(args.input + ".output") as input_output:
-        program_out = input_output.read()
+        program_out = input_output.read().strip()
 elif args.matchinput is not None:
     with open(args.output, 'r') as j_output:
         print(args.matchinput)
@@ -74,10 +75,19 @@ elif args.matchinput is not None:
             _out = out_and_in[1::2]
             _in = out_and_in[::2]
         print(_out, _in)
+        _output = ''.join(_out)
+        _input = '\n'.join(_in) + '\n'
+        with tempfile.TemporaryFile('a+') as tinput, tempfile.TemporaryFile(
+                'a+') as toutput:
+            tinput.write(_input)
+            toutput.write(_output)
+            subprocess.run(['java', args.source.split(".")[0]],
+                           stdin=tinput,
+                           stdout=toutput)
 
 else:
     with open(args.source + '.output', 'a+') as input_output:
         program_out = subprocess.run(
             ['java', args.source.split('.')[0]], stdout=input_output)
 with open(args.output) as j_output:
-    print(program_out == j_output.read())
+    print(program_out == j_output.read().strip())
