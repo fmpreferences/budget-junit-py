@@ -1,7 +1,8 @@
 import subprocess
 from argparse import ArgumentParser
 import re
-import tempfile
+from tempfile import TemporaryFile
+import sys
 
 juparse = ArgumentParser(description='Tests your file compared to input')
 
@@ -47,21 +48,23 @@ def regex_repl(match: re.Match):
         return match.group(0)
 
 
-program_out = ''
 if args.flags is not None:
     subprocess.run(['javac', args.source, *args.flags.split(' ')])
 else:
     subprocess.run(['javac', args.source])
 if args.input is not None:
-    optional_input = ''
-    with open(args.input) as j_input, tempfile.TemporaryFile(
-            'a+') as input_output, open(args.output) as j_output:
+    with open(
+            args.input) as j_input, TemporaryFile('a+') as input_output, open(
+                args.output) as j_output:
         input_output.truncate(0)
         subprocess.run(['java', args.source.split(".")[0]],
                        stdin=j_input,
                        stdout=input_output)
         input_output.seek(0)
-        program_out = input_output.read().strip()
+        if args.whitespace:
+            print(input_output.read().strip() == j_output.read().strip())
+        else:
+            print(input_output.read() == j_output.read())
 elif args.matchinput is not None:
     with open(args.output, 'r') as j_output:
         print(args.matchinput)
@@ -82,19 +85,31 @@ elif args.matchinput is not None:
         _output = ''.join(_out)
         _input = '\n'.join(_in) + '\n'
         print(_input)
-        with open('named.i',
-                  'a+') as tinput, open('named.iofile', 'a+') as toutput, open(
-                      'named.stdoutfile', 'a+') as tstdout:
-            tinput.write(_input.strip())
+        with TemporaryFile('a+') as tinput, TemporaryFile(
+                'a+') as toutput, TemporaryFile('a+') as tstdout:
+            tinput.write(_input)
             tinput.seek(0)
-            toutput.write(_output.strip())
+            if args.whitespace:
+                tinput.write(_output.strip())
+            else:
+                tinput.write(_output)
+            toutput.seek(0)
             subprocess.run(['java', args.source.split(".")[0]],
                            stdin=tinput,
                            stdout=tstdout)
+            toutput.seek(0)
+            tstdout.seek(0)
+            if args.whitespace:
+                print(tstdout.read().strip() == _output.strip())
+            else:
+                print(tstdout.read() == _output)
 
 else:
-    with open(args.source + '.output', 'a+') as input_output:
-        program_out = subprocess.run(
-            ['java', args.source.split('.')[0]], stdout=input_output)
-with open(args.output) as j_output:
-    print(program_out == j_output.read().strip())
+    with open(args.output) as j_output, TemporaryFile('a+') as input_output:
+        subprocess.run(['java', args.source.split('.')[0]],
+                       stdout=input_output)
+        input_output.seek(0)
+        if args.whitespace:
+            print(input_output.read().strip() == j_output.read().strip())
+        else:
+            print(input_output.read() == j_output.read())
