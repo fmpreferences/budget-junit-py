@@ -10,10 +10,15 @@ juparse.add_argument('source', type=str, help='the path of the source code')
 juparse.add_argument('output',
                      type=str,
                      help='the path of the file containing the output')
+juparse.add_argument('-d', '--dump', type=str, help='file to dump stdout to')
 juparse.add_argument('-f',
                      '--flags',
                      type=str,
                      help='special javac flags and arguments')
+juparse.add_argument('-i',
+                     '--input',
+                     type=str,
+                     help='the path of the file containing the input')
 juparse.add_argument(
     '-m',
     '--matchinput',
@@ -28,25 +33,8 @@ juparse.add_argument('-s',
                      '--whitespace',
                      action='store_true',
                      help='if set ignores whitespace')
-juparse.add_argument('-i',
-                     '--input',
-                     type=str,
-                     help='the path of the file containing the input')
 
 args = juparse.parse_args()
-
-
-def regex_repl(match: re.Match):
-    '''
-    regex match function, replaces any single character with escape,
-    and period with a special regex'''
-    if match.group(0) == '.':
-        return r'(?<!\\)\.'
-    if not match.group(0).isalnum():
-        return '\\' + match.group(0)
-    else:
-        return match.group(0)
-
 
 if args.flags is not None:
     subprocess.run(['javac', args.source, *args.flags.split(' ')])
@@ -61,10 +49,14 @@ if args.input is not None:
                        stdin=j_input,
                        stdout=input_output)
         input_output.seek(0)
+        _stdout = input_output.read()
         if args.whitespace:
-            print(input_output.read().strip() == j_output.read().strip())
+            print(_stdout.strip() == j_output.read().strip())
         else:
-            print(input_output.read() == j_output.read())
+            print(_stdout == j_output.read())
+        if args.dump is not None:
+            with open(args.dump, 'w') as dump:
+                dump.write(_stdout)
 elif args.matchinput is not None:
     with open(args.output) as j_output:
         pattern = re.sub(r'(?<!\\)\.', r'(.*?)', args.matchinput)
@@ -95,17 +87,22 @@ elif args.matchinput is not None:
                            stdout=tstdout)
             toutput.seek(0)
             tstdout.seek(0)
+            _stdout = tstdout.read()
             if args.whitespace:
-                print(tstdout.read().strip() == _output.strip())
+                print(_stdout.strip() == _output.strip())
             else:
-                print(tstdout.read() == _output)
+                print(_stdout == _output)
+            if args.dump is not None:
+                with open(args.dump, 'w') as dump:
+                    dump.write(_stdout)
 
 else:
     with open(args.output) as j_output, TemporaryFile('a+') as input_output:
         subprocess.run(['java', args.source.split('.')[0]],
                        stdout=input_output)
         input_output.seek(0)
+        _stdout = input_output.read()
         if args.whitespace:
-            print(input_output.read().strip() == j_output.read().strip())
+            print(_stdout.strip() == j_output.read().strip())
         else:
-            print(input_output.read() == j_output.read())
+            print(_stdout == j_output.read())
