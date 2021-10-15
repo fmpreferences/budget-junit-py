@@ -23,6 +23,10 @@ juparse.add_argument(
     e.g. if inputs are denoted with [.] the actual input is in []. use \\.
     to escape
     ''')
+juparse.add_argument('-s',
+                     '--whitespace',
+                     action='store_true',
+                     help='if set ignores whitespace')
 juparse.add_argument('-i',
                      '--input',
                      type=str,
@@ -50,13 +54,13 @@ else:
     subprocess.run(['javac', args.source])
 if args.input is not None:
     optional_input = ''
-    with open(args.input) as j_input, open(args.input + ".output",
-                                           'a+') as input_output:
+    with open(args.input) as j_input, tempfile.TemporaryFile(
+            'a+') as input_output, open(args.output) as j_output:
         input_output.truncate(0)
         subprocess.run(['java', args.source.split(".")[0]],
                        stdin=j_input,
                        stdout=input_output)
-    with open(args.input + ".output") as input_output:
+        input_output.seek(0)
         program_out = input_output.read().strip()
 elif args.matchinput is not None:
     with open(args.output, 'r') as j_output:
@@ -77,13 +81,16 @@ elif args.matchinput is not None:
         print(_out, _in)
         _output = ''.join(_out)
         _input = '\n'.join(_in) + '\n'
-        with tempfile.TemporaryFile('a+') as tinput, tempfile.TemporaryFile(
-                'a+') as toutput:
-            tinput.write(_input)
-            toutput.write(_output)
+        print(_input)
+        with open('named.i',
+                  'a+') as tinput, open('named.iofile', 'a+') as toutput, open(
+                      'named.stdoutfile', 'a+') as tstdout:
+            tinput.write(_input.strip())
+            tinput.seek(0)
+            toutput.write(_output.strip())
             subprocess.run(['java', args.source.split(".")[0]],
                            stdin=tinput,
-                           stdout=toutput)
+                           stdout=tstdout)
 
 else:
     with open(args.source + '.output', 'a+') as input_output:
