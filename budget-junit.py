@@ -35,7 +35,9 @@ juparse.add_argument('-s',
                      help='if set ignores whitespace')
 
 args = juparse.parse_args()
-
+'''
+main program
+'''
 if args.flags is not None:
     subprocess.run(['javac', args.source, *args.flags.split(' ')])
 else:
@@ -51,7 +53,9 @@ if args.input is not None:
         input_output.seek(0)
         _stdout = input_output.read()
         if args.whitespace:
-            print(_stdout.strip() == j_output.read().strip())
+            print(
+                re.sub(r'\s', '', _stdout) == re.sub(r'\s', '',
+                                                     j_output.read()))
         else:
             print(_stdout == j_output.read())
         if args.dump is not None:
@@ -89,7 +93,7 @@ elif args.matchinput is not None:
             tstdout.seek(0)
             _stdout = tstdout.read()
             if args.whitespace:
-                print(_stdout.strip() == _output.strip())
+                print(re.sub(r'\s', '', _stdout) == re.sub(r'\s', '', _output))
             else:
                 print(_stdout == _output)
             if args.dump is not None:
@@ -103,6 +107,8 @@ else:
         input_output.seek(0)
         _stdout = input_output.read()
         if args.whitespace:
-            print(_stdout.strip() == j_output.read().strip())
+            print(
+                re.sub(r'\s', '', _stdout) == re.sub(r'\s', '',
+                                                     j_output.read()))
         else:
             print(_stdout == j_output.read())
