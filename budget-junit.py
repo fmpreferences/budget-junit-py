@@ -2,7 +2,7 @@ import subprocess
 from argparse import ArgumentParser
 import re
 from tempfile import TemporaryFile
-import sys
+import difflib
 
 juparse = ArgumentParser(description='Tests your file compared to input')
 
@@ -53,11 +53,16 @@ if args.input is not None:
         input_output.seek(0)
         _stdout = input_output.read()
         if args.whitespace:
-            print(
-                re.sub(r'\s', '', _stdout) == re.sub(r'\s', '',
-                                                     j_output.read()))
+            a = re.sub(r'\s', '', _stdout)
+            b = re.sub(r'\s', '', j_output.read())
+            for line in difflib.context_diff(a, b):
+                print(line)
+            print(a == b)
         else:
-            print(_stdout == j_output.read())
+            b = j_output.read()
+            for line in difflib.context_diff(_stdout, b):
+                print(line)
+            print(_stdout == b)
         if args.dump is not None:
             with open(args.dump, 'w') as dump:
                 dump.write(_stdout)
