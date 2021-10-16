@@ -41,6 +41,7 @@ args = juparse.parse_args()
 '''
 main program
 '''
+test_passes = False
 if args.flags is not None:
     subprocess.run(['javac', args.source, *args.flags.split(' ')])
 else:
@@ -56,16 +57,16 @@ if args.input is not None:
         input_output.seek(0)
         _stdout = input_output.read()
         if args.whitespace:
-            a = re.sub(r'\s', '', _stdout)
-            b = re.sub(r'\s', '', j_output.read())
-            for line in difflib.unified_diff(a, b):
+            a = re.sub(r'\s*?\n', '', _stdout)
+            b = re.sub(r'\s*?\n', '', j_output.read())
+            for line in difflib.unified_diff([b], [a]):
                 print(line)
-            print(a == b)
+            test_passes = a == b
         else:
             b = j_output.read()
-            for line in difflib.context_diff(_stdout, b):
+            for line in difflib.unified_diff([b], [_stdout]):
                 print(line)
-            print(_stdout == b)
+            test_passes = (_stdout == b)
         if args.dump is not None:
             with open(args.dump, 'w') as dump:
                 dump.write(_stdout)
@@ -99,9 +100,15 @@ elif args.matchinput is not None:
             tstdout.seek(0)
             _stdout = tstdout.read()
             if args.whitespace:
-                print(re.sub(r'\s', '', _stdout) == re.sub(r'\s', '', _output))
+                a = re.sub(r'\s*?\n', '', _stdout)
+                b = re.sub(r'\s*?\n', '', _output)
+                for line in difflib.unified_diff([b], [a]):
+                    print(line)
+                test_passes = (a == b)
             else:
-                print(_stdout == _output)
+                for line in difflib.unified_diff([_output], [_stdout]):
+                    print(line)
+                test_passes = (_stdout == _output)
             if args.dump is not None:
                 with open(args.dump, 'w') as dump:
                     dump.write(_stdout)
@@ -113,8 +120,14 @@ else:
         input_output.seek(0)
         _stdout = input_output.read()
         if args.whitespace:
-            print(
-                re.sub(r'\s', '', _stdout) == re.sub(r'\s', '',
-                                                     j_output.read()))
+            a = re.sub(r'\s*?\n', '', _stdout)
+            b = re.sub(r'\s*?\n', '', j_output.read())
+            for line in difflib.unified_diff([b], [a]):
+                print(line)
+            test_passes = (a == b)
         else:
-            print(_stdout == j_output.read())
+            for line in difflib.unified_diff([_output], [_stdout]):
+                print(line)
+            test_passes = (_stdout == j_output.read())
+
+print('tests passed' if test_passes else 'tests failed')
