@@ -52,11 +52,11 @@ else:
     subprocess.run(['javac', args.source])
 
 pattern = args.matchinput
-if pattern is not None and os.path.isfile(pattern):
-    with open(pattern) as pattern_f:
-        pattern = pattern_f.read()
-
-print(f'checking for pattern:\n{pattern}')
+if pattern is not None:
+    if os.path.isfile(pattern):
+        with open(pattern) as pattern_f:
+            pattern = pattern_f.read()
+    print(f'checking for pattern:\n{pattern}')
 
 
 def run_test(output, iinput=None) -> dict:
@@ -193,9 +193,7 @@ if in_is_file and out_is_file:
         with open(args.dump, 'w') as dump:
             dump.write(results['stdout'])
 elif in_is_directory and out_is_directory:
-    pass
+    print(*zip(os.walk(args.output), os.walk(args.input)))
 else:
-    print(
-        '''cannot have one input or output corresponding to multiple inputs
-        or outputs!'''
-    )
+    print('''cannot have one input or output corresponding to multiple inputs
+        or outputs!''')
