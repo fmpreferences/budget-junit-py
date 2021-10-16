@@ -1,5 +1,7 @@
 # budget-junit-py
+```bash
 usage: budget-junit.py [-h] [-d DUMP] [-f FLAGS] [-i INPUT] [-m MATCHINPUT] [-s] source output
+```
 
 source: the java file to test. may have some unexpected behavior with flags
 
