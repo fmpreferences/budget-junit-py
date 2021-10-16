@@ -30,10 +30,11 @@ juparse.add_argument(
     help=
     '''the output and input are in one file, where the input matches the given
     pattern. written in a way inputs are represented by a matching group. can
-    directly be instantiated through shell or passing a file in
+    directly be instantiated through shell or passing a file in. does not 
+    detect newlines for you
     e.g. if inputs are denoted with {(.*?)} the actual input matches (.*?)
     and is in {}. use \\ to escape special characters in shell and \\\\
-    to escape special characters in the regex. does not detect newlines for you
+    to escape special characters in the regex. 
     IMPORTANT: regex rules work so you can use any input matching you want but
     avoid using grouping other than the one matching input because it will
     break. if the inputs are not matched right try escaping with more \\
