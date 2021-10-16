@@ -25,9 +25,12 @@ juparse.add_argument(
     type=str,
     help=
     '''the output and input are in one file, where the input matches the given
-    pattern. written in a way inputs are represented by a "."
-    e.g. if inputs are denoted with [.] the actual input is in []. use \\.
-    to escape
+    pattern. written in a way inputs are represented by a "(.*?)"
+    e.g. if inputs are denoted with {(.*?)} the actual input is in {}. use \\\\
+    to escape special characters
+    IMPORTANT: regex rules work so you can use alternate input matching but
+    avoid using grouping other than the one matching input because it will
+    break. if the inputs are not matched right try escaping with \\\\
     ''')
 juparse.add_argument('-s',
                      '--whitespace',
@@ -55,7 +58,7 @@ if args.input is not None:
         if args.whitespace:
             a = re.sub(r'\s', '', _stdout)
             b = re.sub(r'\s', '', j_output.read())
-            for line in difflib.context_diff(a, b):
+            for line in difflib.unified_diff(a, b):
                 print(line)
             print(a == b)
         else:
@@ -68,13 +71,11 @@ if args.input is not None:
                 dump.write(_stdout)
 elif args.matchinput is not None:
     with open(args.output) as j_output:
-        pattern = re.sub(r'(?<!\\)\.', r'(.*?)', args.matchinput)
-        pattern = re.sub(r'\\\.', r'.', pattern)
         o = j_output.read()
-        out_and_in = re.split(pattern, o)
+        out_and_in = re.split(args.matchinput, o)
         _out = []
         _in = []
-        if re.match(pattern, o) is None:
+        if re.match(args.matchinput, o) is None:
             _out = out_and_in[::2]
             _in = out_and_in[1::2]
         else:
