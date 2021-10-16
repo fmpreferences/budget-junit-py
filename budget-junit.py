@@ -4,7 +4,10 @@ import re
 from tempfile import TemporaryFile
 import difflib
 
-juparse = ArgumentParser(description='Tests your file compared to input')
+juparse = ArgumentParser(
+    description='''tests the output of [source] file against the [output].
+    if using multiple outputs then make sure to match your input names as well'''
+)
 
 juparse.add_argument('source', type=str, help='the path of the source code')
 juparse.add_argument('output',
