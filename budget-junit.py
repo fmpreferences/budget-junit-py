@@ -3,7 +3,6 @@ from argparse import ArgumentParser
 import re
 from tempfile import TemporaryFile
 import difflib
-import os
 
 juparse = ArgumentParser(
     description='''tests the output of [source] file against the [output].
@@ -39,7 +38,7 @@ juparse.add_argument(
 juparse.add_argument('-s',
                      '--whitespace',
                      action='store_true',
-                     help='if set ignores whitespace')
+                     help='if set ignores whitespace at end of lines')
 
 args = juparse.parse_args()
 
@@ -49,9 +48,16 @@ else:
     subprocess.run(['javac', args.source])
 
 
-def run_test(output, iinput=None):
+def run_test(output, iinput=None) -> dict:
+    '''run a test comparing the program output to the source output,
+    with an optional input iinput
+
+    returns dict with keys:
+        'test_pass': whether or not the test passed
+        'stdout': the output of the source file
+        'expected_out': the output that was expected
+    '''
     global args
-    test_passes = False
     if iinput is not None:
         with open(iinput) as j_input, TemporaryFile(
                 'a+') as input_output, open(output) as j_output:
@@ -62,23 +68,21 @@ def run_test(output, iinput=None):
             input_output.seek(0)
             _stdout = input_output.read()
             if args.whitespace:
-                a = re.sub(r'\s*?\n', '', _stdout)
-                b = re.sub(r'\s*?\n', '', j_output.read())
-
-                test_passes = a == b
-                for line in difflib.unified_diff([b], [a], 'expected output',
-                                                 'program output'):
-                    print(line)
+                a = re.sub(r'(\s*?\n+)+', '\n', _stdout)
+                b = re.sub(r'(\s*?\n+)+', '\n', j_output.read())
+                return {
+                    'test_pass': a == b,
+                    'stdout': a,
+                    'expected_out': b
+                }  # is there a better way? please?
             else:
                 b = j_output.read()
-                for line in difflib.unified_diff([b], [_stdout],
-                                                 'expected output',
-                                                 'program output'):
-                    print(line)
-                test_passes = (_stdout == b)
-            if args.dump is not None:
-                with open(args.dump, 'w') as dump:
-                    dump.write(_stdout)
+                return {
+                    'test_pass': _stdout == b,
+                    'stdout': _stdout,
+                    'expected_out': b
+                }
+
     elif args.matchinput is not None:
         with open(output) as j_output:
             o = j_output.read()
@@ -109,22 +113,20 @@ def run_test(output, iinput=None):
                 tstdout.seek(0)
                 _stdout = tstdout.read()
                 if args.whitespace:
-                    a = re.sub(r'\s*?\n', '', _stdout)
-                    b = re.sub(r'\s*?\n', '', _output)
-                    for line in difflib.unified_diff([b], [a],
-                                                     'expected output',
-                                                     'program output'):
-                        print(line)
+                    a = re.sub(r'(\s*?\n+)+', '\n', _stdout)
+                    b = re.sub(r'(\s*?\n+)+', '\n', _output)
                     test_passes = (a == b)
+                    return {
+                        'test_pass': a == b,
+                        'stdout': a,
+                        'expected_out': b
+                    }
                 else:
-                    for line in difflib.unified_diff([_output], [_stdout],
-                                                     'expected output',
-                                                     'program output'):
-                        print(line)
-                    test_passes = (_stdout == _output)
-                if args.dump is not None:
-                    with open(args.dump, 'w') as dump:
-                        dump.write(_stdout)
+                    return {
+                        'test_pass': _stdout == _output,
+                        'stdout': _stdout,
+                        'expected_out': _output
+                    }
 
     else:
         with open(output) as j_output, TemporaryFile('a+') as input_output:
@@ -133,19 +135,29 @@ def run_test(output, iinput=None):
             input_output.seek(0)
             _stdout = input_output.read()
             if args.whitespace:
-                a = re.sub(r'\s*?\n', '', _stdout)
-                b = re.sub(r'\s*?\n', '', j_output.read())
-                for line in difflib.unified_diff([b], [a], 'expected output',
-                                                 'program output'):
-                    print(line)
-                test_passes = (a == b)
+                a = re.sub(r'(\s*?\n+)+', '\n', _stdout)
+                b = re.sub(r'(\s*?\n+)+', '\n', j_output.read())
+                return {'test_pass': a == b, 'stdout': a, 'expected_out': b}
             else:
-                for line in difflib.unified_diff([_output], [_stdout],
-                                                 'expected output',
-                                                 'program output'):
-                    print(line)
-                test_passes = (_stdout == j_output.read())
+                _output = j_output.read()
+                return {
+                    'test_pass': _stdout == _output,
+                    'stdout': _stdout,
+                    'expected_out': _output
+                }
+
     return test_passes
 
 
-run_test(args.output, args.input)
+results = run_test(args.output, args.input)
+if results['test_pass']:
+    print('test pass')
+else:
+    print('test fail')
+for line in difflib.unified_diff(results['expected_out'].split('\n'),
+                                 results['stdout'].split('\n'),
+                                 'expected output', 'program output'):
+    print(line)
+if args.dump is not None:
+    with open(args.dump, 'w') as dump:
+        dump.write(run_test['stdout'])
