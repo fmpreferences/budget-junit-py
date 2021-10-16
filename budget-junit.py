@@ -44,6 +44,30 @@ args = juparse.parse_args()
 '''
 main program
 '''
+
+
+class BudgetJUnit:
+    def __init__(self,
+                 source,
+                 output,
+                 iinput=None,
+                 dump=None,
+                 regex=None,
+                 flags=None):
+        self.source = source
+        self.output = output
+        self.input = iinput
+        self.dump = dump
+        self.regex = regex
+        self.flags = flags.split(' ')
+
+    def compile_source(self) -> None:
+        if self.flags is not None:
+            subprocess.run(['javac', self.source, *self.flags])
+        else:
+            subprocess.run(['javac', self.source])
+
+
 test_passes = False
 if args.flags is not None:
     subprocess.run(['javac', args.source, *args.flags.split(' ')])
