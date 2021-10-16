@@ -173,4 +173,4 @@ for line in difflib.unified_diff(results['expected_out'].split('\n'),
     print(line)
 if args.dump is not None:
     with open(args.dump, 'w') as dump:
-        dump.write(run_test['stdout'])
+        dump.write(results['stdout'])
