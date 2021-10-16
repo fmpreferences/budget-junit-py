@@ -22,3 +22,7 @@ python 3
 java jdk for the javac and java commands
 
 should be platform independent
+
+## other:
+
+this program creates temporary files because i couldnt find a way to feed input or parse output without using files

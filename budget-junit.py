@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 import re
 from tempfile import TemporaryFile
 import difflib
+import os
 
 juparse = ArgumentParser(
     description='''tests the output of [source] file against the [output].
@@ -52,14 +53,24 @@ class BudgetJUnit:
                  output,
                  iinput=None,
                  dump=None,
+                 whitespace=False,
                  regex=None,
                  flags=None):
         self.source = source
         self.output = output
         self.input = iinput
         self.dump = dump
+        self.whitespace = whitespace
         self.regex = regex
-        self.flags = flags.split(' ')
+        self.flags = flags.split(' ') if flags is not None else None
+        self.compile_source()
+        out_is_dir = os.path.isdir(output)
+        in_is_dir = os.path.isdir(iinput)
+        if (not out_is_dir
+                and os.path.exists(output)) and (not in_is_dir
+                                                 and os.path.exists(iinput)):
+            print('tests passed' if self.run_tests(out_is_dir, in_is_dir
+                                                   ) else 'tests failed')
 
     def compile_source(self) -> None:
         if self.flags is not None:
@@ -67,7 +78,96 @@ class BudgetJUnit:
         else:
             subprocess.run(['javac', self.source])
 
+    def run_tests(self, output, iinput=None) -> bool:
+        test_passes = False
+        if iinput is not None:
+            with open(iinput) as j_input, TemporaryFile(
+                    'a+') as input_output, open(output) as j_output:
+                input_output.truncate(0)
+                subprocess.run(['java', self.source.split(".")[0]],
+                               stdin=j_input,
+                               stdout=input_output)
+                input_output.seek(0)
+                _stdout = input_output.read()
+                if self.whitespace:
+                    a = re.sub(r'\s*?\n', '', _stdout)
+                    b = re.sub(r'\s*?\n', '', j_output.read())
+                    for line in difflib.unified_diff([b], [a]):
+                        print(line)
+                    test_passes = a == b
+                else:
+                    b = j_output.read()
+                    for line in difflib.unified_diff([b], [_stdout]):
+                        print(line)
+                    test_passes = (_stdout == b)
+                if self.dump is not None:
+                    with open(self.dump, 'w') as dump:
+                        dump.write(_stdout)
+        elif self.matchinput is not None:
+            with open(output) as j_output:
+                o = j_output.read()
+                out_and_in = re.split(self.matchinput, o)
+                _out = []
+                _in = []
+                if re.match(self.matchinput, o) is None:
+                    _out = out_and_in[::2]
+                    _in = out_and_in[1::2]
+                else:
+                    _out = out_and_in[1::2]
+                    _in = out_and_in[::2]
+                _output = ''.join(_out)
+                _input = '\n'.join(_in) + '\n'
+                with TemporaryFile('a+') as tinput, TemporaryFile(
+                        'a+') as toutput, TemporaryFile('a+') as tstdout:
+                    tinput.write(_input)
+                    tinput.seek(0)
+                    if self.whitespace:
+                        toutput.write(_output.strip())
+                    else:
+                        toutput.write(_output)
+                    toutput.seek(0)
+                    subprocess.run(['java', self.source.split(".")[0]],
+                                   stdin=tinput,
+                                   stdout=tstdout)
+                    toutput.seek(0)
+                    tstdout.seek(0)
+                    _stdout = tstdout.read()
+                    if self.whitespace:
+                        a = re.sub(r'\s*?\n', '', _stdout)
+                        b = re.sub(r'\s*?\n', '', _output)
+                        for line in difflib.unified_diff([b], [a]):
+                            print(line)
+                        test_passes = (a == b)
+                    else:
+                        for line in difflib.unified_diff([_output], [_stdout]):
+                            print(line)
+                        test_passes = (_stdout == _output)
+                    if self.dump is not None:
+                        with open(self.dump, 'w') as dump:
+                            dump.write(_stdout)
 
+        else:
+            with open(output) as j_output, TemporaryFile('a+') as input_output:
+                subprocess.run(['java', self.source.split('.')[0]],
+                               stdout=input_output)
+                input_output.seek(0)
+                _stdout = input_output.read()
+                if self.whitespace:
+                    a = re.sub(r'\s*?\n', '', _stdout)
+                    b = re.sub(r'\s*?\n', '', j_output.read())
+                    for line in difflib.unified_diff([b], [a]):
+                        print(line)
+                    test_passes = (a == b)
+                else:
+                    for line in difflib.unified_diff([_output], [_stdout]):
+                        print(line)
+                    test_passes = (_stdout == j_output.read())
+        return test_passes
+
+
+BudgetJUnit(args.source, args.output, args.input, args.dump, args.whitespace,
+            args.matchinput, args.flags)
+'''
 test_passes = False
 if args.flags is not None:
     subprocess.run(['javac', args.source, *args.flags.split(' ')])
@@ -158,3 +258,4 @@ else:
             test_passes = (_stdout == j_output.read())
 
 print('tests passed' if test_passes else 'tests failed')
+'''
