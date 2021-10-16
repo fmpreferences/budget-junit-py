@@ -1,18 +1,18 @@
 # budget-junit-py
 junit for those who dont know. not as versatile as actual junit but easy to use
 
-# usage
+## usage:
 ```bash
 budget-junit.py [-h] [-d DUMP] [-f FLAGS] [-i INPUT] [-m MATCHINPUT] [-s] source output
 ```
 
 source: the java file to test. may have some unexpected behavior with flags
 
-output: the stdout to compare to. can be a file or (in development) directories
+output: the stdout to compare to. can be a file or (in development) directories. will break if you dont specify an input file but the file needs an input to finish
 
 -d: make a file with the given name that stores the program output
 
--f: may work very unexpectedly
+-f: compiler flags, may work very unexpectedly. i literally dont understand java enough to fix your error if it's related to this if you really need it, so, sorry
 
 -i: the file to pass in as input for the program. can be a file or (in development) directories
 

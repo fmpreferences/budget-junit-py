@@ -51,12 +51,10 @@ if args.flags is not None:
 else:
     subprocess.run(['javac', args.source])
 
-pattern = ''
-if os.path.isfile(args.matchinput):
-    with open(args.matchinput) as pattern_f:
+pattern = args.matchinput
+if pattern is not None and os.path.isfile(pattern):
+    with open(pattern) as pattern_f:
         pattern = pattern_f.read()
-else:
-    pattern = args.matchinput
 
 print(f'checking for pattern:\n{pattern}')
 
@@ -162,15 +160,42 @@ def run_test(output, iinput=None) -> dict:
     return test_passes
 
 
-results = run_test(args.output, args.input)
-if results['test_pass']:
-    print('test pass')
+out_is_file = os.path.isfile(args.output)
+out_is_directory = os.path.isdir(args.output)
+
+in_is_directory = in_is_file = False
+
+if args.input is not None:
+    in_is_file = os.path.isfile(args.input)
+    in_is_directory = os.path.isdir(args.input)
 else:
-    print('test fail')
-for line in difflib.unified_diff(results['expected_out'].split('\n'),
-                                 results['stdout'].split('\n'),
-                                 'expected output', 'program output'):
-    print(line)
-if args.dump is not None:
-    with open(args.dump, 'w') as dump:
-        dump.write(results['stdout'])
+    results = run_test(args.output)
+    if results['test_pass']:
+        print('test pass')
+    else:
+        print('test fail')
+    for line in difflib.unified_diff(results['expected_out'].split('\n'),
+                                     results['stdout'].split('\n'),
+                                     'expected output', 'program output'):
+        print(line)
+
+if in_is_file and out_is_file:
+    results = run_test(args.output, args.input)
+    if results['test_pass']:
+        print('test pass')
+    else:
+        print('test fail')
+    for line in difflib.unified_diff(results['expected_out'].split('\n'),
+                                     results['stdout'].split('\n'),
+                                     'expected output', 'program output'):
+        print(line)
+    if args.dump is not None:
+        with open(args.dump, 'w') as dump:
+            dump.write(results['stdout'])
+elif in_is_directory and out_is_directory:
+    pass
+else:
+    print(
+        '''cannot have one input or output corresponding to multiple inputs
+        or outputs!'''
+    )
