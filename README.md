@@ -1,6 +1,9 @@
 # budget-junit-py
+junit for those who dont know. not as versatile as actual junit but easy to use
+
+# usage
 ```bash
-usage: budget-junit.py [-h] [-d DUMP] [-f FLAGS] [-i INPUT] [-m MATCHINPUT] [-s] source output
+budget-junit.py [-h] [-d DUMP] [-f FLAGS] [-i INPUT] [-m MATCHINPUT] [-s] source output
 ```
 
 source: the java file to test. may have some unexpected behavior with flags
