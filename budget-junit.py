@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 import re
 from tempfile import TemporaryFile
 import difflib
+import os
 
 juparse = ArgumentParser(
     description='''tests the output of [source] file against the [output].
@@ -28,12 +29,14 @@ juparse.add_argument(
     type=str,
     help=
     '''the output and input are in one file, where the input matches the given
-    pattern. written in a way inputs are represented by a "(.*?)"
-    e.g. if inputs are denoted with {(.*?)} the actual input is in {}. use \\\\
-    to escape special characters
-    IMPORTANT: regex rules work so you can use alternate input matching but
+    pattern. written in a way inputs are represented by a matching group. can
+    directly be instantiated through shell or passing a file in
+    e.g. if inputs are denoted with {(.*?)} the actual input matches (.*?)
+    and is in {}. use \\ to escape special characters in shell and \\\\
+    to escape special characters in the regex. does not detect newlines for you
+    IMPORTANT: regex rules work so you can use any input matching you want but
     avoid using grouping other than the one matching input because it will
-    break. if the inputs are not matched right try escaping with \\\\
+    break. if the inputs are not matched right try escaping with more \\
     ''')
 juparse.add_argument('-s',
                      '--whitespace',
@@ -47,6 +50,15 @@ if args.flags is not None:
 else:
     subprocess.run(['javac', args.source])
 
+pattern = ''
+if os.path.isfile(args.matchinput):
+    with open(args.matchinput) as pattern_f:
+        pattern = pattern_f.read()
+else:
+    pattern = args.matchinput
+
+print(f'checking for pattern:\n{pattern}')
+
 
 def run_test(output, iinput=None) -> dict:
     '''run a test comparing the program output to the source output,
@@ -57,7 +69,7 @@ def run_test(output, iinput=None) -> dict:
         'stdout': the output of the source file
         'expected_out': the output that was expected
     '''
-    global args
+    global args, pattern
     if iinput is not None:
         with open(iinput) as j_input, TemporaryFile(
                 'a+') as input_output, open(output) as j_output:
@@ -83,13 +95,13 @@ def run_test(output, iinput=None) -> dict:
                     'expected_out': b
                 }
 
-    elif args.matchinput is not None:
+    elif pattern is not None:
         with open(output) as j_output:
             o = j_output.read()
-            out_and_in = re.split(args.matchinput, o)
+            out_and_in = re.split(pattern, o)
             _out = []
             _in = []
-            if re.match(args.matchinput, o) is None:
+            if re.match(pattern, o) is None:
                 _out = out_and_in[::2]
                 _in = out_and_in[1::2]
             else:

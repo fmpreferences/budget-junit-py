@@ -13,7 +13,11 @@ output: the stdout to compare to. can be a file or (in development) directories
 
 -i: the file to pass in as input for the program. can be a file or (in development) directories
 
--m: input and output are one file, and you use regex groups to match input from the output. may have unexpected behavior. (.*?) is recommended if you dont know what to do. make sure to use \\\\ correctly. automatically sends newline (\n character) for you. ignored if -i exists
+-m: the output and input are in one file, where the input matches the given pattern. written in a way inputs are represented by a matching group. can directly be instantiated through shell or passing a file in. does not detect newlines for you.
+is ignored if -i is set
+e.g. if inputs are denoted with {(.\*?)} the actual input matches (.\*?)and is in {}. use \\ to escape special characters in shell and \\\\ to escape special characters in the regex
+using no groups or more than one may create unexpected behavior.
+depending on the shell you may need to escape a lot. for example the phrase (.*?) needs every character to be escaped, which can be annoying. if you dont want to deal with this enclose the pattern in a string or pass an existing file in as the pattern.
 
 ## requirements:
 
