@@ -179,21 +179,36 @@ else:
                                      'expected output', 'program output'):
         print(line)
 
-if in_is_file and out_is_file:
-    results = run_test(args.output, args.input)
-    if results['test_pass']:
-        print('test pass')
+if args.matchinput is None:
+    if in_is_file and out_is_file:
+        results = run_test(args.output, args.input)
+        if results['test_pass']:
+            print('test pass')
+        else:
+            print('test fail')
+        for line in difflib.unified_diff(results['expected_out'].split('\n'),
+                                         results['stdout'].split('\n'),
+                                         'expected output', 'program output'):
+            print(line)
+        if args.dump is not None:
+            with open(args.dump, 'w') as dump:
+                dump.write(results['stdout'])
+    elif in_is_directory and out_is_directory:
+        for root, _, files in os.walk(args.output):
+            for f in files:
+                try:
+                    with open(
+                            os.path.join(
+                                root.replace(args.output, args.input, 1),
+                                f)) as iinput:
+                        pass
+                except FileNotFoundError:
+                    print(
+                        f"test case '{f}' in {os.path.join(root, f)} failed, skipping"
+                    )
+
     else:
-        print('test fail')
-    for line in difflib.unified_diff(results['expected_out'].split('\n'),
-                                     results['stdout'].split('\n'),
-                                     'expected output', 'program output'):
-        print(line)
-    if args.dump is not None:
-        with open(args.dump, 'w') as dump:
-            dump.write(results['stdout'])
-elif in_is_directory and out_is_directory:
-    print(*zip(os.walk(args.output), os.walk(args.input)))
-else:
-    print('''cannot have one input or output corresponding to multiple inputs
+        print(
+        '''
+        cannot have one input or output corresponding to multiple inputs
         or outputs!''')
