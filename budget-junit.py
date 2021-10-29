@@ -169,15 +169,35 @@ if args.input is not None:
     in_is_file = os.path.isfile(args.input)
     in_is_directory = os.path.isdir(args.input)
 else:
-    results = run_test(args.output)
-    if results['test_pass']:
-        print('test pass')
-    else:
-        print('test fail')
-    for line in difflib.unified_diff(results['expected_out'].split('\n'),
-                                     results['stdout'].split('\n'),
-                                     'expected output', 'program output'):
-        print(line)
+    if out_is_file:
+        results = run_test(args.output)
+        if results['test_pass']:
+            print('test pass')
+        else:
+            print('test fail')
+        for line in difflib.unified_diff(results['expected_out'].split('\n'),
+                                         results['stdout'].split('\n'),
+                                         'expected output', 'program output'):
+            print(line)
+    elif out_is_directory:        
+        test_case = os.path.join(root, f)
+        print(f'trying test case {f} in {test_case}...')
+        results = run_test(test_case)
+        if results['test_pass']:
+            print('test pass')
+        else:
+            print('test fail')
+        for line in difflib.unified_diff(
+                results['expected_out'].split('\n'),
+                results['stdout'].split('\n'), 'expected output',
+                'program output'):
+            print(line)
+        if args.dump is not None:
+            with open(
+                    os.path.join(
+                        root.replace(args.output, args.dump, 1),
+                        f), 'w') as dump:
+                dump.write(results['stdout'])
 
 if args.matchinput is None:
     if in_is_file and out_is_file:
@@ -197,18 +217,31 @@ if args.matchinput is None:
         for root, _, files in os.walk(args.output):
             for f in files:
                 try:
-                    with open(
-                            os.path.join(
-                                root.replace(args.output, args.input, 1),
-                                f)) as iinput:
-                        pass
+                    test_case = os.path.join(root, f)
+                    input_test_case = os.path.join(
+                        root.replace(args.output, args.input, 1), f)
+                    print(f'trying test case {f} in {test_case}...')
+                    results = run_test(test_case, input_test_case)
+                    if results['test_pass']:
+                        print('test pass')
+                    else:
+                        print('test fail')
+                    for line in difflib.unified_diff(
+                            results['expected_out'].split('\n'),
+                            results['stdout'].split('\n'), 'expected output',
+                            'program output'):
+                        print(line)
+                    if args.dump is not None:
+                        with open(
+                                os.path.join(
+                                    root.replace(args.output, args.dump, 1),
+                                    f), 'w') as dump:
+                            dump.write(results['stdout'])
                 except FileNotFoundError:
                     print(
-                        f"test case '{f}' in {os.path.join(root, f)} failed, skipping"
-                    )
+                        f"test case '{f}' in {test_case} not found, skipping")
 
     else:
-        print(
-        '''
+        print('''
         cannot have one input or output corresponding to multiple inputs
         or outputs!''')
