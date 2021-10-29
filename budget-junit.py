@@ -179,25 +179,27 @@ else:
                                          results['stdout'].split('\n'),
                                          'expected output', 'program output'):
             print(line)
-    elif out_is_directory:        
-        test_case = os.path.join(root, f)
-        print(f'trying test case {f} in {test_case}...')
-        results = run_test(test_case)
-        if results['test_pass']:
-            print('test pass')
-        else:
-            print('test fail')
-        for line in difflib.unified_diff(
-                results['expected_out'].split('\n'),
-                results['stdout'].split('\n'), 'expected output',
-                'program output'):
-            print(line)
-        if args.dump is not None:
-            with open(
-                    os.path.join(
-                        root.replace(args.output, args.dump, 1),
-                        f), 'w') as dump:
-                dump.write(results['stdout'])
+    elif out_is_directory:
+        for root, _, files in os.walk(args.output):
+            for f in files:
+                test_case = os.path.join(root, f)
+                print(f'trying test case {f} in {test_case}...')
+                results = run_test(test_case)
+                if results['test_pass']:
+                    print('test pass')
+                else:
+                    print('test fail')
+                for line in difflib.unified_diff(
+                        results['expected_out'].split('\n'),
+                        results['stdout'].split('\n'), 'expected output',
+                        'program output'):
+                    print(line)
+                if args.dump is not None:
+                    with open(
+                            os.path.join(
+                                root.replace(args.output, args.dump, 1), f),
+                            'w') as dump:
+                        dump.write(results['stdout'])
 
 if args.matchinput is None:
     if in_is_file and out_is_file:
