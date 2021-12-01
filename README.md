@@ -8,23 +8,23 @@ budget-junit.py [-h] [-d DUMP] [-f FLAGS] [-i INPUT] [-m MATCHINPUT] [-s] source
 
 source: the java file to test. may have some unexpected behavior with flags
 
-output: the stdout to compare to. can be a file or (in development) directories. will break if you dont specify an input file but the file needs an input to finish
+output: the stdout to compare to. can be a file or directories. will break if you dont specify an input file but the file needs an input to finish
 
 -d: make a file with the given name that stores the program output
 
 -f: compiler flags, may work very unexpectedly. i literally dont understand java enough to fix your error if it's related to this if you really need it, so, sorry
 
--i: the file to pass in as input for the program. can be a file or (in development) directories
+-i: the file to pass in as input for the program. can be a file or directories, but cannot be a file if the output is a directory
 
--m: the output and input are in one file, where the input matches the given pattern. written in a way inputs are represented by a matching group. can directly be instantiated through shell or passing a file in. does not detect newlines for you.
+-m: matches group one of a regex pattern you pass in. new lines are automatically added in after group 1.
 
 is ignored if -i is set
 
-e.g. if inputs are denoted with {(.\*?)} the actual input matches (.\*?)and is in {}. use \\ to escape special characters in shell and \\\\ to escape special characters in the regex
+e.g. if inputs are denoted with {(.\*?)} group 1 is in (.\*?). make sure to escape properly in the shell.
 
-using no groups or more than one may create unexpected behavior.
+note you may need to eat up the newline in your match pattern. if no group is specified, it used the group 0 by default; be warned that this may not be optimal. also note that more than 1 group will just match group 1. use (?:) accordingly.
 
-depending on the shell you may need to escape a lot. for example the phrase (.*?) needs every character to be escaped, which can be annoying. if you dont want to deal with this enclose the pattern in a string or pass an existing file in as the pattern.
+depending on the shell you may need to escape a lot. for example the phrase (.\*?) needs every character to be escaped, which can be annoying. if you dont want to deal with this enclose the pattern in a string or pass an existing file in as the pattern.
 
 ## requirements:
 

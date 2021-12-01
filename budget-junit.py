@@ -49,17 +49,6 @@ def main():
     if args.input:
         in_is_file = os.path.isfile(args.input)
         in_is_directory = os.path.isdir(args.input)
-    else:
-        if out_is_file:
-            results = run_test(args.output, args, pattern)
-            results.print_diff()
-            if args.dump:
-                with open(args.dump, 'w') as dump:
-                    dump.write(results.stdout)
-        elif out_is_directory:
-            compare_mulitple(args, pattern)
-
-    if args.matchinput is None:
         if in_is_file and out_is_file:
             results = run_test(args.output, args, pattern, args.input)
             results.print_diff()
@@ -72,6 +61,15 @@ def main():
             print('''
             cannot have one input or output corresponding to multiple inputs
             or outputs!''')
+    else:
+        if out_is_file:
+            results = run_test(args.output, args, pattern)
+            results.print_diff()
+            if args.dump:
+                with open(args.dump, 'w') as dump:
+                    dump.write(results.stdout)
+        elif out_is_directory:
+            compare_mulitple(args, pattern)
 
 
 def parser_setup() -> ArgumentParser:
