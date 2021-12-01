@@ -42,55 +42,21 @@ def main():
         if out_is_file:
             results = run_test(args.output, args, pattern)
             print_diff(results)
+            if args.dump:
+                with open(args.dump, 'w') as dump:
+                    dump.write(results.stdout)
         elif out_is_directory:
-            for root, _, files in os.walk(args.output):
-                for f in files:
-                    test_case = os.path.join(root, f)
-                    print(f'trying test case {f} in {test_case}...')
-                    results = run_test(test_case, args, pattern)
-                    print_diff(results)
-                    if args.dump is not None:
-                        with open(
-                                os.path.join(
-                                    root.replace(args.output, args.dump, 1),
-                                    f), 'w') as dump:
-                            dump.write(results.stdout)
+            compare_mulitple(args, pattern)
 
     if args.matchinput is None:
         if in_is_file and out_is_file:
             results = run_test(args.output, args, pattern, args.input)
             print_diff(results)
-            if args.dump is not None:
+            if args.dump:
                 with open(args.dump, 'w') as dump:
                     dump.write(results.stdout)
         elif in_is_directory and out_is_directory:
-            attempted = found = success = 0
-            for root, _, files in os.walk(args.output):
-                for f in files:
-                    try:
-                        test_case = os.path.join(root, f)
-                        input_test_case = os.path.join(
-                            root.replace(args.output, args.input, 1), f)
-                        print(f'trying test case {f} in {test_case}...')
-                        results = run_test(test_case, args, pattern,
-                                           input_test_case)
-                        if print_diff(results):
-                            success += 1
-                        if args.dump is not None:
-                            with open(
-                                    os.path.join(
-                                        root.replace(args.output, args.dump,
-                                                     1), f), 'w') as dump:
-                                dump.write(results.stdout)
-                        found += 1
-                    except FileNotFoundError:
-                        print(
-                            f"test case '{f}' in {test_case} not found, skipping"
-                        )
-                    attempted += 1
-            print(
-                f'{attempted} cases attempted, {success} cases out of {found} found cases passed'
-            )
+            compare_mulitple(args, pattern)
         else:
             print('''
             cannot have one input or output corresponding to multiple inputs
@@ -101,52 +67,27 @@ def run_test(output, args, pattern=None, iinput=None) -> TestResult:
     '''run a test comparing the program output to the source output
     '''
     if iinput:
-        with open(iinput) as j_input, TemporaryFile(
-                'a+') as input_output, open(output) as j_output:
+        with open(iinput) as jstdin, TemporaryFile('a+') as input_output, open(
+                output) as expected_out:
             input_output.truncate(0)
             subprocess.run(['java', args.source.split(".")[0]],
-                           stdin=j_input,
+                           stdin=jstdin,
                            stdout=input_output)
             input_output.seek(0)
-            _stdout = input_output.read()
-            if args.whitespace:
-                stdout_filtered = re.sub(r'(\s*?\n+)+', '\n', _stdout).strip()
-                expected_out_filtered = re.sub(r'(\s*?\n+)+', '\n',
-                                               j_output.read()).strip()
-                return TestResult(stdout_filtered == expected_out_filtered,
-                                  stdout_filtered, expected_out_filtered)
-            else:
-                expected_out = j_output.read()
-                return TestResult(_stdout == expected_out, _stdout,
-                                  expected_out)
+            jstdout = input_output.read()
+            expected_out = expected_out.read()
+            return compare_outputs(args, jstdout, expected_out)
 
     elif pattern:
-        with open(output) as j_output:
-            o = j_output.read()
-            out_and_in = re.split(pattern, o)
-            _out = []
-            _in = []
-            if re.match(pattern, o) is None:
-                '''if the pattern does not match the start of the string. if
-                it doesn't, that means the groups found are the odd numbered
-                groups. e.g. pattern match b, in a b c the groups will look like
-                [a, b, c] this of course assumes the groups will be separated by 
-                a non group, oops'''
-                _out = out_and_in[::2]
-                _in = out_and_in[1::2]
-            else:
-                _out = out_and_in[1::2]
-                _in = out_and_in[::2]
-            _output = ''.join(_out)
-            _input = '\n'.join(_in) + '\n'
+        with open(output) as expected_out:
+            o = expected_out.read()
+            _input, _output = separate_inputs(o, pattern)
             with TemporaryFile('a+') as tinput, TemporaryFile(
                     'a+') as toutput, TemporaryFile('a+') as tstdout:
                 tinput.write(_input)
                 tinput.seek(0)
-                if args.whitespace:
-                    toutput.write(_output.strip())
-                else:
-                    toutput.write(_output)
+                toutput.write(
+                    _output)  # regardless of whitespace, take care after
                 toutput.seek(0)
                 subprocess.run(['java', args.source.split(".")[0]],
                                stdin=tinput,
@@ -154,31 +95,16 @@ def run_test(output, args, pattern=None, iinput=None) -> TestResult:
                 toutput.seek(0)
                 tstdout.seek(0)
                 _stdout = tstdout.read()
-                if args.whitespace:
-                    stdout_filtered = re.sub(r'(\s*?\n+)+', '\n',
-                                             _stdout).strip()
-                    expected_out_filtered = re.sub(r'(\s*?\n+)+', '\n',
-                                                   _output).strip()
-                    return TestResult(stdout_filtered == expected_out_filtered,
-                                      stdout_filtered, expected_out_filtered)
-                else:
-                    return TestResult(_stdout == _output, _stdout, _output)
+                return compare_outputs(args, _stdout, _output)
 
     else:
-        with open(output) as j_output, TemporaryFile('a+') as input_output:
+        with open(output) as expected_out, TemporaryFile('a+') as input_output:
             subprocess.run(['java', args.source.split('.')[0]],
                            stdout=input_output)
             input_output.seek(0)
             _stdout = input_output.read()
-            if args.whitespace:
-                stdout_filtered = re.sub(r'(\s*?\n+)+', '\n', _stdout).strip()
-                expected_out_filtered = re.sub(r'(\s*?\n+)+', '\n',
-                                               j_output.read()).strip()
-                return TestResult(stdout_filtered == expected_out_filtered,
-                                  stdout_filtered, expected_out_filtered)
-            else:
-                _output = j_output.read()
-                return TestResult(_stdout == _output, _stdout, _output)
+            expected_out = expected_out.read()
+            return compare_outputs(args, _stdout, expected_out)
 
 
 def parser_setup() -> ArgumentParser:
@@ -242,17 +168,33 @@ def print_diff(results: TestResult) -> bool:
     return results.test_pass
 
 
-def separate_inputs(string, pattern) -> tuple[list, str]:
-    '''return a tuple that returns input and output'''
+def compare_outputs(args, stdout, expected_out) -> TestResult:
+    '''compares stdout with expected_out and returns the test result'''
+    if args.whitespace:
+        stdout_filtered = re.sub(r'(\s*?\n+)+', '\n', stdout).strip()
+        expected_out_filtered = re.sub(r'(\s*?\n+)+', '\n',
+                                       expected_out).strip()
+        return TestResult(stdout_filtered == expected_out_filtered,
+                          stdout_filtered, expected_out_filtered)
+    else:
+        return TestResult(stdout == expected_out, stdout, expected_out)
+
+
+def separate_inputs(string, pattern) -> (str, str):
+    '''return a tuple that returns input and output
+
+    note the input already adds the newline after each line due to
+    technical limitation'''
     def group_1(match):
-        match.group(1)
+        return match.group(1)
 
-    return list(map(group_1,
-                    re.finditer(pattern,
-                                string))), re.sub(pattern, "", string)
+    return '\n'.join(map(group_1, re.finditer(
+        pattern, string))) + '\n', re.sub(pattern, "", string)
 
 
-def compare_mulitple(args, pattern):
+def compare_mulitple(args, pattern) -> None:
+    '''compares the output or optional input given
+    they are directories'''
     attempted = found = success = 0
     for root, _, files in os.walk(args.output):
         for f in files:
@@ -265,7 +207,7 @@ def compare_mulitple(args, pattern):
                 results = run_test(test_case, args, pattern, input_test_case)
                 if print_diff(results):
                     success += 1
-                if args.dump is not None:
+                if args.dump:
                     with open(
                             os.path.join(
                                 root.replace(args.output, args.dump, 1), f),
@@ -281,9 +223,4 @@ def compare_mulitple(args, pattern):
 
 
 if __name__ == '__main__':
-    separate_inputs('''[ee]
-    [ea]
-    gex
-    [gg]
-    ''', r'\[(.*)\]\n')
     main()
