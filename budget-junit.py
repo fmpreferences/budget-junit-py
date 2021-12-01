@@ -1,75 +1,185 @@
 import subprocess
 from argparse import ArgumentParser
+from dataclasses import dataclass
 import re
 from tempfile import TemporaryFile
 import difflib
 import os
 
-juparse = ArgumentParser(
-    description='''tests the output of [source] file against the [output].
-    if using multiple outputs then make sure to match your input names as well'''
-)
 
-juparse.add_argument('source', type=str, help='the path of the source code')
-juparse.add_argument('output',
-                     type=str,
-                     help='the path of the file containing the output')
-juparse.add_argument('-d', '--dump', type=str, help='file to dump stdout to')
-juparse.add_argument('-f',
-                     '--flags',
-                     type=str,
-                     help='special javac flags and arguments')
-juparse.add_argument('-i',
-                     '--input',
-                     type=str,
-                     help='the path of the file containing the input')
-juparse.add_argument(
-    '-m',
-    '--matchinput',
-    type=str,
-    help=
-    '''the output and input are in one file, where the input matches the given
-    pattern. written in a way inputs are represented by a matching group. can
-    directly be instantiated through shell or passing a file in. does not 
-    detect newlines for you
-    e.g. if inputs are denoted with {(.*?)} the actual input matches (.*?)
-    and is in {}. use \\ to escape special characters in shell and \\\\
-    to escape special characters in the regex. 
-    IMPORTANT: regex rules work so you can use any input matching you want but
-    avoid using grouping other than the one matching input because it will
-    break. if the inputs are not matched right try escaping with more \\
-    ''')
-juparse.add_argument('-s',
-                     '--whitespace',
-                     action='store_true',
-                     help='if set ignores whitespace at end of lines')
-
-args = juparse.parse_args()
-
-if args.flags is not None:
-    subprocess.run(['javac', args.source, *args.flags.split(' ')])
-else:
-    subprocess.run(['javac', args.source])
-
-pattern = args.matchinput
-if pattern is not None:
-    if os.path.isfile(pattern):
-        with open(pattern) as pattern_f:
-            pattern = pattern_f.read()
-    print(f'checking for pattern:\n{pattern}')
+@dataclass
+class TestResult:
+    test_pass: bool
+    stdout: str
+    expected_out: str
 
 
-def run_test(output, iinput=None) -> dict:
+def main():
+    junit_parser = ArgumentParser(
+        description='''tests the output of [source] file against the [output].
+        if using multiple outputs then make sure to match your input names as well'''
+    )
+
+    junit_parser.add_argument('source',
+                              type=str,
+                              help='the path of the source code')
+    junit_parser.add_argument(
+        'output', type=str, help='the path of the file containing the output')
+    junit_parser.add_argument('-d',
+                              '--dump',
+                              type=str,
+                              help='file to dump stdout to')
+    junit_parser.add_argument('-f',
+                              '--flags',
+                              type=str,
+                              help='special javac flags and arguments')
+    junit_parser.add_argument('-i',
+                              '--input',
+                              type=str,
+                              help='the path of the file containing the input')
+    junit_parser.add_argument(
+        '-m',
+        '--matchinput',
+        type=str,
+        help=
+        '''the output and input are in one file, where the input matches the given
+        pattern. written in a way inputs are represented by a matching group. can
+        directly be instantiated through shell or passing a file in. does not
+        detect newlines for you
+        e.g. if inputs are denoted with {(.*?)} the actual input matches (.*?)
+        and is in {}. use \\ to escape special characters in shell and \\\\
+        to escape special characters in the regex.
+        IMPORTANT: regex rules work so you can use any input matching you want but
+        avoid using grouping other than the one matching input because it will
+        break, unless you ignore the group with (?:). if the inputs are not matched
+        right try escaping with more \\
+        ''')
+    junit_parser.add_argument('-s',
+                              '--whitespace',
+                              action='store_true',
+                              help='if set ignores whitespace at end of lines')
+
+    args = junit_parser.parse_args()
+
+    if args.flags:
+        subprocess.run(['javac', args.source, *args.flags.split(' ')])
+    else:
+        subprocess.run(['javac', args.source])
+
+    pattern = args.matchinput
+    if pattern:
+        if os.path.isfile(pattern):
+            with open(pattern) as pattern_f:
+                pattern = pattern_f.read()
+        print(f'checking for pattern:\n{pattern}')
+    out_is_file = os.path.isfile(args.output)
+    out_is_directory = os.path.isdir(args.output)
+
+    in_is_directory = in_is_file = False
+
+    if args.input:
+        in_is_file = os.path.isfile(args.input)
+        in_is_directory = os.path.isdir(args.input)
+    else:
+        if out_is_file:
+            results = run_test(args.output, args, pattern)
+            if results.test_pass:
+                print('test pass')
+            else:
+                print('test fail')
+            for line in difflib.unified_diff(results.expected_out.split('\n'),
+                                             results.stdout.split('\n'),
+                                             'expected output',
+                                             'program output'):
+                print(line)
+        elif out_is_directory:
+            for root, _, files in os.walk(args.output):
+                for f in files:
+                    test_case = os.path.join(root, f)
+                    print(f'trying test case {f} in {test_case}...')
+                    results = run_test(test_case, args, pattern)
+                    if results.test_pass:
+                        print('test pass')
+                    else:
+                        print('test fail')
+                    for line in difflib.unified_diff(
+                            results.expected_out.split('\n'),
+                            results.stdout.split('\n'), 'expected output',
+                            'program output'):
+                        print(line)
+                    if args.dump is not None:
+                        with open(
+                                os.path.join(
+                                    root.replace(args.output, args.dump, 1),
+                                    f), 'w') as dump:
+                            dump.write(results.stdout)
+
+    if args.matchinput is None:
+        if in_is_file and out_is_file:
+            results = run_test(args.output, args, pattern, args.input)
+            if results.test_pass:
+                print('test pass')
+            else:
+                print('test fail')
+            for line in difflib.unified_diff(results.expected_out.split('\n'),
+                                             results.stdout.split('\n'),
+                                             'expected output',
+                                             'program output'):
+                print(line)
+            if args.dump is not None:
+                with open(args.dump, 'w') as dump:
+                    dump.write(results.stdout)
+        elif in_is_directory and out_is_directory:
+            attempted = found = success = 0
+            for root, _, files in os.walk(args.output):
+                for f in files:
+                    try:
+                        test_case = os.path.join(root, f)
+                        input_test_case = os.path.join(
+                            root.replace(args.output, args.input, 1), f)
+                        print(f'trying test case {f} in {test_case}...')
+                        results = run_test(test_case, args, pattern,
+                                           input_test_case)
+                        if results.test_pass:
+                            print('test pass')
+                            success += 1
+                        else:
+                            print('test fail')
+                        for line in difflib.unified_diff(
+                                results.expected_out.split('\n'),
+                                results.stdout.split('\n'), 'expected output',
+                                'program output'):
+                            print(line)
+                        if args.dump is not None:
+                            with open(
+                                    os.path.join(
+                                        root.replace(args.output, args.dump,
+                                                     1), f), 'w') as dump:
+                                dump.write(results.stdout)
+                        found += 1
+                    except FileNotFoundError:
+                        print(
+                            f"test case '{f}' in {test_case} not found, skipping"
+                        )
+                    attempted += 1
+            print(
+                f'{attempted} cases attempted, {success} cases out of {found} found cases passed'
+            )
+        else:
+            print('''
+            cannot have one input or output corresponding to multiple inputs
+            or outputs!''')
+
+
+def run_test(output, args, pattern=None, iinput=None) -> dict:
     '''run a test comparing the program output to the source output,
-    with an optional input iinput
 
     returns dict with keys:
         'test_pass': whether or not the test passed
         'stdout': the output of the source file
         'expected_out': the output that was expected
     '''
-    global args, pattern
-    if iinput is not None:
+    if iinput:
         with open(iinput) as j_input, TemporaryFile(
                 'a+') as input_output, open(output) as j_output:
             input_output.truncate(0)
@@ -79,28 +189,28 @@ def run_test(output, iinput=None) -> dict:
             input_output.seek(0)
             _stdout = input_output.read()
             if args.whitespace:
-                a = re.sub(r'(\s*?\n+)+', '\n', _stdout)
-                b = re.sub(r'(\s*?\n+)+', '\n', j_output.read())
-                return {
-                    'test_pass': a == b,
-                    'stdout': a,
-                    'expected_out': b
-                }  # is there a better way? please?
+                stdout_filtered = re.sub(r'(\s*?\n+)+', '\n', _stdout).strip()
+                expected_out_filtered = re.sub(r'(\s*?\n+)+', '\n',
+                                               j_output.read()).strip()
+                return TestResult(stdout_filtered == expected_out_filtered,
+                                  stdout_filtered, expected_out_filtered)
             else:
-                b = j_output.read()
-                return {
-                    'test_pass': _stdout == b,
-                    'stdout': _stdout,
-                    'expected_out': b
-                }
+                expected_out = j_output.read()
+                return TestResult(_stdout == expected_out, _stdout,
+                                  expected_out)
 
-    elif pattern is not None:
+    elif pattern:
         with open(output) as j_output:
             o = j_output.read()
             out_and_in = re.split(pattern, o)
             _out = []
             _in = []
             if re.match(pattern, o) is None:
+                '''if the pattern does not match the start of the string. if
+                it doesn't, that means the groups found are the odd numbered
+                groups. e.g. pattern match b, in a b c the groups will look like
+                [a, b, c] this of course assumes the groups will be separated by 
+                a non group, oops'''
                 _out = out_and_in[::2]
                 _in = out_and_in[1::2]
             else:
@@ -124,20 +234,14 @@ def run_test(output, iinput=None) -> dict:
                 tstdout.seek(0)
                 _stdout = tstdout.read()
                 if args.whitespace:
-                    a = re.sub(r'(\s*?\n+)+', '\n', _stdout)
-                    b = re.sub(r'(\s*?\n+)+', '\n', _output)
-                    test_passes = (a == b)
-                    return {
-                        'test_pass': a == b,
-                        'stdout': a,
-                        'expected_out': b
-                    }
+                    stdout_filtered = re.sub(r'(\s*?\n+)+', '\n',
+                                             _stdout).strip()
+                    expected_out_filtered = re.sub(r'(\s*?\n+)+', '\n',
+                                                   _output).strip()
+                    return TestResult(stdout_filtered == expected_out_filtered,
+                                      stdout_filtered, expected_out_filtered)
                 else:
-                    return {
-                        'test_pass': _stdout == _output,
-                        'stdout': _stdout,
-                        'expected_out': _output
-                    }
+                    return TestResult(_stdout == _output, _stdout, _output)
 
     else:
         with open(output) as j_output, TemporaryFile('a+') as input_output:
@@ -146,104 +250,15 @@ def run_test(output, iinput=None) -> dict:
             input_output.seek(0)
             _stdout = input_output.read()
             if args.whitespace:
-                a = re.sub(r'(\s*?\n+)+', '\n', _stdout)
-                b = re.sub(r'(\s*?\n+)+', '\n', j_output.read())
-                return {'test_pass': a == b, 'stdout': a, 'expected_out': b}
+                stdout_filtered = re.sub(r'(\s*?\n+)+', '\n', _stdout).strip()
+                expected_out_filtered = re.sub(r'(\s*?\n+)+', '\n',
+                                               j_output.read()).strip()
+                return TestResult(stdout_filtered == expected_out_filtered,
+                                  stdout_filtered, expected_out_filtered)
             else:
                 _output = j_output.read()
-                return {
-                    'test_pass': _stdout == _output,
-                    'stdout': _stdout,
-                    'expected_out': _output
-                }
-
-    return test_passes
+                return TestResult(_stdout == _output, _stdout, _output)
 
 
-out_is_file = os.path.isfile(args.output)
-out_is_directory = os.path.isdir(args.output)
-
-in_is_directory = in_is_file = False
-
-if args.input is not None:
-    in_is_file = os.path.isfile(args.input)
-    in_is_directory = os.path.isdir(args.input)
-else:
-    if out_is_file:
-        results = run_test(args.output)
-        if results['test_pass']:
-            print('test pass')
-        else:
-            print('test fail')
-        for line in difflib.unified_diff(results['expected_out'].split('\n'),
-                                         results['stdout'].split('\n'),
-                                         'expected output', 'program output'):
-            print(line)
-    elif out_is_directory:
-        for root, _, files in os.walk(args.output):
-            for f in files:
-                test_case = os.path.join(root, f)
-                print(f'trying test case {f} in {test_case}...')
-                results = run_test(test_case)
-                if results['test_pass']:
-                    print('test pass')
-                else:
-                    print('test fail')
-                for line in difflib.unified_diff(
-                        results['expected_out'].split('\n'),
-                        results['stdout'].split('\n'), 'expected output',
-                        'program output'):
-                    print(line)
-                if args.dump is not None:
-                    with open(
-                            os.path.join(
-                                root.replace(args.output, args.dump, 1), f),
-                            'w') as dump:
-                        dump.write(results['stdout'])
-
-if args.matchinput is None:
-    if in_is_file and out_is_file:
-        results = run_test(args.output, args.input)
-        if results['test_pass']:
-            print('test pass')
-        else:
-            print('test fail')
-        for line in difflib.unified_diff(results['expected_out'].split('\n'),
-                                         results['stdout'].split('\n'),
-                                         'expected output', 'program output'):
-            print(line)
-        if args.dump is not None:
-            with open(args.dump, 'w') as dump:
-                dump.write(results['stdout'])
-    elif in_is_directory and out_is_directory:
-        for root, _, files in os.walk(args.output):
-            for f in files:
-                try:
-                    test_case = os.path.join(root, f)
-                    input_test_case = os.path.join(
-                        root.replace(args.output, args.input, 1), f)
-                    print(f'trying test case {f} in {test_case}...')
-                    results = run_test(test_case, input_test_case)
-                    if results['test_pass']:
-                        print('test pass')
-                    else:
-                        print('test fail')
-                    for line in difflib.unified_diff(
-                            results['expected_out'].split('\n'),
-                            results['stdout'].split('\n'), 'expected output',
-                            'program output'):
-                        print(line)
-                    if args.dump is not None:
-                        with open(
-                                os.path.join(
-                                    root.replace(args.output, args.dump, 1),
-                                    f), 'w') as dump:
-                            dump.write(results['stdout'])
-                except FileNotFoundError:
-                    print(
-                        f"test case '{f}' in {test_case} not found, skipping")
-
-    else:
-        print('''
-        cannot have one input or output corresponding to multiple inputs
-        or outputs!''')
+if __name__ == '__main__':
+    main()
