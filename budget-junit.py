@@ -53,7 +53,7 @@ def main():
     else:
         if out_is_file:
             results = run_test(args.output, args, pattern)
-            results.print_diff(results)
+            results.print_diff()
             if args.dump:
                 with open(args.dump, 'w') as dump:
                     dump.write(results.stdout)
@@ -63,7 +63,7 @@ def main():
     if args.matchinput is None:
         if in_is_file and out_is_file:
             results = run_test(args.output, args, pattern, args.input)
-            results.print_diff(results)
+            results.print_diff()
             if args.dump:
                 with open(args.dump, 'w') as dump:
                     dump.write(results.stdout)
@@ -183,7 +183,10 @@ def separate_inputs(string, pattern) -> (str, str):
     note the input already adds the newline after each line due to
     technical limitation'''
     def group_1(match):
-        return match.group(1)
+        try:
+            return match.group(1)
+        except IndexError:
+            return match.group()
 
     return '\n'.join(map(group_1, re.finditer(
         pattern, string))) + '\n', re.sub(pattern, "", string)
@@ -202,7 +205,7 @@ def compare_mulitple(args, pattern) -> None:
                         root.replace(args.output, args.input, 1), f)
                 print(f'trying test case {f} in {test_case}...')
                 results = run_test(test_case, args, pattern, input_test_case)
-                if results.print_diff(results):
+                if results.print_diff():
                     success += 1
                 if args.dump:
                     with open(
