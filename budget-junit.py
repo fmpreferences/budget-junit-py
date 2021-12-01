@@ -13,6 +13,18 @@ class TestResult:
     stdout: str
     expected_out: str
 
+    def print_diff(self) -> bool:
+        '''prints the diff and returns if the test passed'''
+        if self.test_pass:
+            print('test pass')
+        else:
+            print('test fail')
+        for line in difflib.unified_diff(self.expected_out.split('\n'),
+                                         self.stdout.split('\n'),
+                                         'expected output', 'program output'):
+            print(line)
+        return self.test_pass
+
 
 def main():
     junit_parser = parser_setup()
@@ -41,7 +53,7 @@ def main():
     else:
         if out_is_file:
             results = run_test(args.output, args, pattern)
-            print_diff(results)
+            results.print_diff(results)
             if args.dump:
                 with open(args.dump, 'w') as dump:
                     dump.write(results.stdout)
@@ -51,7 +63,7 @@ def main():
     if args.matchinput is None:
         if in_is_file and out_is_file:
             results = run_test(args.output, args, pattern, args.input)
-            print_diff(results)
+            results.print_diff(results)
             if args.dump:
                 with open(args.dump, 'w') as dump:
                     dump.write(results.stdout)
@@ -61,50 +73,6 @@ def main():
             print('''
             cannot have one input or output corresponding to multiple inputs
             or outputs!''')
-
-
-def run_test(output, args, pattern=None, iinput=None) -> TestResult:
-    '''run a test comparing the program output to the source output
-    '''
-    if iinput:
-        with open(iinput) as jstdin, TemporaryFile('a+') as input_output, open(
-                output) as expected_out:
-            input_output.truncate(0)
-            subprocess.run(['java', args.source.split(".")[0]],
-                           stdin=jstdin,
-                           stdout=input_output)
-            input_output.seek(0)
-            jstdout = input_output.read()
-            expected_out = expected_out.read()
-            return compare_outputs(args, jstdout, expected_out)
-
-    elif pattern:
-        with open(output) as expected_out:
-            o = expected_out.read()
-            _input, _output = separate_inputs(o, pattern)
-            with TemporaryFile('a+') as tinput, TemporaryFile(
-                    'a+') as toutput, TemporaryFile('a+') as tstdout:
-                tinput.write(_input)
-                tinput.seek(0)
-                toutput.write(
-                    _output)  # regardless of whitespace, take care after
-                toutput.seek(0)
-                subprocess.run(['java', args.source.split(".")[0]],
-                               stdin=tinput,
-                               stdout=tstdout)
-                toutput.seek(0)
-                tstdout.seek(0)
-                _stdout = tstdout.read()
-                return compare_outputs(args, _stdout, _output)
-
-    else:
-        with open(output) as expected_out, TemporaryFile('a+') as input_output:
-            subprocess.run(['java', args.source.split('.')[0]],
-                           stdout=input_output)
-            input_output.seek(0)
-            _stdout = input_output.read()
-            expected_out = expected_out.read()
-            return compare_outputs(args, _stdout, expected_out)
 
 
 def parser_setup() -> ArgumentParser:
@@ -155,17 +123,46 @@ def parser_setup() -> ArgumentParser:
     return junit_parser
 
 
-def print_diff(results: TestResult) -> bool:
-    '''prints the diff and returns if the test passed'''
-    if results.test_pass:
-        print('test pass')
+def run_test(output, args, pattern=None, iinput=None) -> TestResult:
+    '''run a test comparing the program output to the source output
+    '''
+    if iinput:
+        with open(iinput) as jstdin, TemporaryFile('a+') as input_output, open(
+                output) as expected_out:
+            input_output.truncate(0)
+            subprocess.run(['java', args.source.split(".")[0]],
+                           stdin=jstdin,
+                           stdout=input_output)
+            input_output.seek(0)
+            jstdout = input_output.read()
+            expected_out = expected_out.read()
+            return compare_outputs(args, jstdout, expected_out)
+    elif pattern:
+        with open(output) as expected_out:
+            o = expected_out.read()
+            _input, _output = separate_inputs(o, pattern)
+            with TemporaryFile('a+') as tinput, TemporaryFile(
+                    'a+') as toutput, TemporaryFile('a+') as tstdout:
+                tinput.write(_input)
+                tinput.seek(0)
+                toutput.write(
+                    _output)  # regardless of whitespace, take care after
+                toutput.seek(0)
+                subprocess.run(['java', args.source.split(".")[0]],
+                               stdin=tinput,
+                               stdout=tstdout)
+                toutput.seek(0)
+                tstdout.seek(0)
+                _stdout = tstdout.read()
+                return compare_outputs(args, _stdout, _output)
     else:
-        print('test fail')
-    for line in difflib.unified_diff(results.expected_out.split('\n'),
-                                     results.stdout.split('\n'),
-                                     'expected output', 'program output'):
-        print(line)
-    return results.test_pass
+        with open(output) as expected_out, TemporaryFile('a+') as input_output:
+            subprocess.run(['java', args.source.split('.')[0]],
+                           stdout=input_output)
+            input_output.seek(0)
+            _stdout = input_output.read()
+            expected_out = expected_out.read()
+            return compare_outputs(args, _stdout, expected_out)
 
 
 def compare_outputs(args, stdout, expected_out) -> TestResult:
@@ -205,7 +202,7 @@ def compare_mulitple(args, pattern) -> None:
                         root.replace(args.output, args.input, 1), f)
                 print(f'trying test case {f} in {test_case}...')
                 results = run_test(test_case, args, pattern, input_test_case)
-                if print_diff(results):
+                if results.print_diff(results):
                     success += 1
                 if args.dump:
                     with open(
