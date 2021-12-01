@@ -22,9 +22,12 @@ is ignored if -i is set
 
 e.g. if inputs are denoted with {(.\*?)} group 1 is in (.\*?). make sure to escape properly in the shell.
 
-note you may need to eat up the newline in your match pattern. if no group is specified, it used the group 0 by default; be warned that this may not be optimal. also note that more than 1 group will just match group 1. use (?:) accordingly.
+note you may need to eat up the newline in your match pattern. if no group is specified, it uses group 0 by default; be warned that this may not be optimal. also note that more than 1 group will just match group 1. use (?:) accordingly.
 
 depending on the shell you may need to escape a lot. for example the phrase (.\*?) needs every character to be escaped, which can be annoying. if you dont want to deal with this enclose the pattern in a string or pass an existing file in as the pattern.
+
+-s: ignores white space, trailing space, space before and after newline, and duplicate newlines
+
 
 ## requirements:
 
