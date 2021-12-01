@@ -13,7 +13,7 @@ class TestResult:
     stdout: str
     expected_out: str
 
-    def print_diff(self) -> bool:
+    def print_diff(self):
         '''prints the diff and returns if the test passed'''
         if self.test_pass:
             print('test pass')
@@ -23,7 +23,6 @@ class TestResult:
                                          self.stdout.split('\n'),
                                          'expected output', 'program output'):
             print(line)
-        return self.test_pass
 
 
 def main():
@@ -205,7 +204,8 @@ def compare_mulitple(args, pattern) -> None:
                         root.replace(args.output, args.input, 1), f)
                 print(f'trying test case {f} in {test_case}...')
                 results = run_test(test_case, args, pattern, input_test_case)
-                if results.print_diff():
+                results.print_diff()
+                if results.test_pass:
                     success += 1
                 if args.dump:
                     with open(
