@@ -15,49 +15,7 @@ class TestResult:
 
 
 def main():
-    junit_parser = ArgumentParser(
-        description='''tests the output of [source] file against the [output].
-        if using multiple outputs then make sure to match your input names as well'''
-    )
-
-    junit_parser.add_argument('source',
-                              type=str,
-                              help='the path of the source code')
-    junit_parser.add_argument(
-        'output', type=str, help='the path of the file containing the output')
-    junit_parser.add_argument('-d',
-                              '--dump',
-                              type=str,
-                              help='file to dump stdout to')
-    junit_parser.add_argument('-f',
-                              '--flags',
-                              type=str,
-                              help='special javac flags and arguments')
-    junit_parser.add_argument('-i',
-                              '--input',
-                              type=str,
-                              help='the path of the file containing the input')
-    junit_parser.add_argument(
-        '-m',
-        '--matchinput',
-        type=str,
-        help=
-        '''the output and input are in one file, where the input matches the given
-        pattern. written in a way inputs are represented by a matching group. can
-        directly be instantiated through shell or passing a file in. does not
-        detect newlines for you
-        e.g. if inputs are denoted with {(.*?)} the actual input matches (.*?)
-        and is in {}. use \\ to escape special characters in shell and \\\\
-        to escape special characters in the regex.
-        IMPORTANT: regex rules work so you can use any input matching you want but
-        avoid using grouping other than the one matching input because it will
-        break, unless you ignore the group with (?:). if the inputs are not matched
-        right try escaping with more \\
-        ''')
-    junit_parser.add_argument('-s',
-                              '--whitespace',
-                              action='store_true',
-                              help='if set ignores whitespace at end of lines')
+    junit_parser = parser_setup()
 
     args = junit_parser.parse_args()
 
@@ -83,30 +41,14 @@ def main():
     else:
         if out_is_file:
             results = run_test(args.output, args, pattern)
-            if results.test_pass:
-                print('test pass')
-            else:
-                print('test fail')
-            for line in difflib.unified_diff(results.expected_out.split('\n'),
-                                             results.stdout.split('\n'),
-                                             'expected output',
-                                             'program output'):
-                print(line)
+            print_diff(results)
         elif out_is_directory:
             for root, _, files in os.walk(args.output):
                 for f in files:
                     test_case = os.path.join(root, f)
                     print(f'trying test case {f} in {test_case}...')
                     results = run_test(test_case, args, pattern)
-                    if results.test_pass:
-                        print('test pass')
-                    else:
-                        print('test fail')
-                    for line in difflib.unified_diff(
-                            results.expected_out.split('\n'),
-                            results.stdout.split('\n'), 'expected output',
-                            'program output'):
-                        print(line)
+                    print_diff(results)
                     if args.dump is not None:
                         with open(
                                 os.path.join(
@@ -117,15 +59,7 @@ def main():
     if args.matchinput is None:
         if in_is_file and out_is_file:
             results = run_test(args.output, args, pattern, args.input)
-            if results.test_pass:
-                print('test pass')
-            else:
-                print('test fail')
-            for line in difflib.unified_diff(results.expected_out.split('\n'),
-                                             results.stdout.split('\n'),
-                                             'expected output',
-                                             'program output'):
-                print(line)
+            print_diff(results)
             if args.dump is not None:
                 with open(args.dump, 'w') as dump:
                     dump.write(results.stdout)
@@ -140,16 +74,8 @@ def main():
                         print(f'trying test case {f} in {test_case}...')
                         results = run_test(test_case, args, pattern,
                                            input_test_case)
-                        if results.test_pass:
-                            print('test pass')
+                        if print_diff(results):
                             success += 1
-                        else:
-                            print('test fail')
-                        for line in difflib.unified_diff(
-                                results.expected_out.split('\n'),
-                                results.stdout.split('\n'), 'expected output',
-                                'program output'):
-                            print(line)
                         if args.dump is not None:
                             with open(
                                     os.path.join(
@@ -171,13 +97,8 @@ def main():
             or outputs!''')
 
 
-def run_test(output, args, pattern=None, iinput=None) -> dict:
-    '''run a test comparing the program output to the source output,
-
-    returns dict with keys:
-        'test_pass': whether or not the test passed
-        'stdout': the output of the source file
-        'expected_out': the output that was expected
+def run_test(output, args, pattern=None, iinput=None) -> TestResult:
+    '''run a test comparing the program output to the source output
     '''
     if iinput:
         with open(iinput) as j_input, TemporaryFile(
@@ -260,5 +181,109 @@ def run_test(output, args, pattern=None, iinput=None) -> dict:
                 return TestResult(_stdout == _output, _stdout, _output)
 
 
+def parser_setup() -> ArgumentParser:
+    '''sets up the ArgParser that reads from the command line
+    '''
+    junit_parser = ArgumentParser(
+        description='''tests the output of [source] file against the [output].
+        if using multiple outputs then make sure to match your input names as well'''
+    )
+
+    junit_parser.add_argument('source',
+                              type=str,
+                              help='the path of the source code')
+    junit_parser.add_argument(
+        'output', type=str, help='the path of the file containing the output')
+    junit_parser.add_argument('-d',
+                              '--dump',
+                              type=str,
+                              help='file to dump stdout to')
+    junit_parser.add_argument('-f',
+                              '--flags',
+                              type=str,
+                              help='special javac flags and arguments')
+    junit_parser.add_argument('-i',
+                              '--input',
+                              type=str,
+                              help='the path of the file containing the input')
+    junit_parser.add_argument(
+        '-m',
+        '--matchinput',
+        type=str,
+        help=
+        '''the output and input are in one file, where the input matches the given
+        pattern. written in a way inputs are represented by a matching group. can
+        directly be instantiated through shell or passing a file in. does not
+        detect newlines for you
+        e.g. if inputs are denoted with {(.*?)} the actual input matches (.*?)
+        and is in {}. use \\ or quotes to escape special characters in shell
+        and the right no. of backslashes to escape special characters in the regex.
+        IMPORTANT: regex rules work so you can use any input matching you want but
+        make sure to specify a matching group, any further groups after group 1 may
+        be ignored. if the inputs are not matched right try escaping with more \\
+        ''')
+    junit_parser.add_argument('-s',
+                              '--whitespace',
+                              action='store_true',
+                              help='if set ignores whitespace at end of lines')
+    return junit_parser
+
+
+def print_diff(results: TestResult) -> bool:
+    '''prints the diff and returns if the test passed'''
+    if results.test_pass:
+        print('test pass')
+    else:
+        print('test fail')
+    for line in difflib.unified_diff(results.expected_out.split('\n'),
+                                     results.stdout.split('\n'),
+                                     'expected output', 'program output'):
+        print(line)
+    return results.test_pass
+
+
+def separate_inputs(string, pattern) -> tuple[list, str]:
+    '''return a tuple that returns input and output'''
+    def group_1(match):
+        match.group(1)
+
+    return list(map(group_1,
+                    re.finditer(pattern,
+                                string))), re.sub(pattern, "", string)
+
+
+def compare_mulitple(args, pattern):
+    attempted = found = success = 0
+    for root, _, files in os.walk(args.output):
+        for f in files:
+            try:
+                test_case = os.path.join(root, f)
+                if args.input:
+                    input_test_case = os.path.join(
+                        root.replace(args.output, args.input, 1), f)
+                print(f'trying test case {f} in {test_case}...')
+                results = run_test(test_case, args, pattern, input_test_case)
+                if print_diff(results):
+                    success += 1
+                if args.dump is not None:
+                    with open(
+                            os.path.join(
+                                root.replace(args.output, args.dump, 1), f),
+                            'w') as dump:
+                        dump.write(results.stdout)
+                found += 1
+            except FileNotFoundError:
+                print(f"test case '{f}' in {test_case} not found, skipping")
+            attempted += 1
+    print(
+        f'{attempted} cases attempted, {success} cases out of {found} found cases passed'
+    )
+
+
 if __name__ == '__main__':
+    separate_inputs('''[ee]
+    [ea]
+    gex
+    [gg]
+    ''', r'\[(.*)\]\n')
     main()
